@@ -91,15 +91,8 @@ def get_data(cookies_pkl):
                 wait = WebDriverWait(driver, 20)
                 input_pin = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@id="pin"]')))
                 input_pin.click()
-                input_pin.clear()
-                input_pin.send_keys(pin_code) #entering zipcode
-                check_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//label[@for='pin']/following-sibling::button")))
-                check_button.click()
-                time.sleep(2)
-                pincode_flag = True
             except Exception as e:
                 print(e)
-                pincode_flag = False
             data = driver.page_source
 
 
