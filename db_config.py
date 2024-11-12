@@ -8,7 +8,7 @@ class DbConfig():
         self.con = pymysql.Connect(host='172.27.131.60', user='root', password='actowiz', database='meesho_master')
         self.cur = self.con.cursor(pymysql.cursors.DictCursor)
 
-        self.product_links_table = 'product_links_20240920'
+        self.product_links_table = 'product_links_20241112'
 
         self.con_local = pymysql.Connect(host='localhost', user='root', password='actowiz', database='meesho')
         self.cur_local = self.con_local.cursor(pymysql.cursors.DictCursor)
