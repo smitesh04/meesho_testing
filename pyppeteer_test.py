@@ -1,11 +1,15 @@
-import urllib.parse
+import asyncio
+from pyppeteer import launch
 
-from DrissionPage import ChromiumPage
-from db_config import  DbConfig
-from DrissionPage import SessionPage, SessionOptions
+async def main():
+    chromedriver_path = r"C:\Users\Actowiz\Downloads\chromedriver-win64\chromedriver.exe"
+    chrome_executable_path = r"C:\Users\Actowiz\Downloads\chrome-win64\chrome.exe"
 
-obj = DbConfig()
-headers = {
+    browser = await launch( executablePath=chrome_executable_path)
+    page = await browser.newPage()
+
+    # Set custom headers
+    await page.setExtraHTTPHeaders({
   'accept': 'application/json, text/plain, */*',
   'accept-language': 'en-US,en;q=0.9',
   'content-type': 'application/json',
@@ -14,75 +18,21 @@ headers = {
   'origin': 'https://www.meesho.com',
   'priority': 'u=1, i',
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-}
-def data(link, pid, pin):
-    # page = RequestsPage(headers=headers)
-    page = ChromiumPage()
+})
+    pid = '1006o8'
+    pin = '400001'
 
-    # Define the raw cookie string and parse it into a dictionary
-    raw_cookie_string = 'ANONYMOUS_USER_CONFIG=...; mp_60483c180bee99d71ee5c084d7bb9d20_mixpanel=%7B%22distinct_id%22%3A%20...'
-    cookies_dict = {}
-    for cookie in raw_cookie_string.split("; "):
-        key, value = cookie.split("=", 1)
-        cookies_dict[key] = urllib.parse.unquote(value)
-
-    # Set cookies
-    # for name, value in cookies_dict.items():
-    #     page.cookies.set(name, value)
-
-    # Define the target URL
-    pid = "62xuj0"  # Replace with your actual product ID if available
     url = f'https://www.meesho.com/s/p/{pid}'
 
-    # Start network listener
-    page.listen.start()
+    # Open the page
+    await page.goto(url)
 
-    # Navigate to the URL
-    page.get(url)
+    # Print the page title
+    title = await page.title()
+    print('Page title:', title)
 
-    # Interact with elements if needed
-    input_pin = page.ele('tag:input@id:pin')
-    input_pin.clear()
-    input_pin.input('560001')
+    # Close the browser
+    await browser.close()
 
-    # Click the "CHECK" button
-    check_button = page.ele('tag:span@text():CHECK')
-    check_button.click()
-
-    # Capture network requests
-    network_requests = page.listen.targets
-
-    # Print network request details
-    for req in network_requests:
-        print(f"URL: {req.url}")
-        print(f"Method: {req.method}")
-        print(f"Status Code: {req.status_code}")
-        print(f"Headers: {req.headers}")
-        print("---------")
-
-    # Stop listening
-    page.listen.stop()
-
-    # Access session cookies and other session information
-    session_cookies = page.cookies(all_domains=False).as_dict()
-    print("Session Cookies:", session_cookies)
-
-    # Optionally, print the entire HTML for inspection
-    page_html = page.html
-    print()
-
-
-
-    print()
-
-
-if __name__ == '__main__':
-    qr = f"select * from {obj.product_links_table} where status='Done' and status_560001='pending' limit 1,5"
-    obj.cur.execute(qr)
-    results = obj.cur.fetchall()
-    for row in results:
-
-        pid = row['meesho_pid']
-        url = f'https://www.meesho.com/s/p/{pid}'
-
-        data(link=url, pid=pid, pin='560001')
+# Run the async function
+asyncio.get_event_loop().run_until_complete(main())
