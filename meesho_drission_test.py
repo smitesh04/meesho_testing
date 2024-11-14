@@ -1,9 +1,14 @@
+import ast
+import datetime
+import os.path
+import re
+import time
 import urllib.parse
 
 from DrissionPage import ChromiumPage
 from db_config import  DbConfig
 from DrissionPage import SessionPage, SessionOptions
-
+from common_func import  create_md5_hash, page_write
 obj = DbConfig()
 headers = {
   'accept': 'application/json, text/plain, */*',
@@ -16,73 +21,70 @@ headers = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 }
 def data(link, pid, pin):
-    # page = RequestsPage(headers=headers)
+    url = link
+    ChromiumPage().set.window.hide()
     page = ChromiumPage()
+    # page.set.window.hide()
+    obj.cur.execute("select * from fetch_table where id=1")
+    row = obj.cur.fetchall()
+    cookies_dict = row[0]['cookie']
+    cookie_raw = re.findall('{.*?}', cookies_dict)
+    main_cookie_list = list()
+    for x in cookie_raw:
+        name = re.findall("'name': '.*?',", x)[0]
+        name = name.replace("'name': '", '').replace("',", "").strip()
+        value = re.findall("'value': '.*?',", x)[0]
+        value = value.replace("'value': '", '').replace("',", "").strip()
+        cookie_instnce = f'{name}={value}'
+        main_cookie_list.append(cookie_instnce)
 
-    # Define the raw cookie string and parse it into a dictionary
-    raw_cookie_string = 'ANONYMOUS_USER_CONFIG=...; mp_60483c180bee99d71ee5c084d7bb9d20_mixpanel=%7B%22distinct_id%22%3A%20...'
-    cookies_dict = {}
-    for cookie in raw_cookie_string.split("; "):
-        key, value = cookie.split("=", 1)
-        cookies_dict[key] = urllib.parse.unquote(value)
-
-    # Set cookies
-    # for name, value in cookies_dict.items():
-    #     page.cookies.set(name, value)
-
-    # Define the target URL
-    pid = "62xuj0"  # Replace with your actual product ID if available
-    url = f'https://www.meesho.com/s/p/{pid}'
-
-    # Start network listener
-    page.listen.start()
-
-    # Navigate to the URL
+    cookie_cleaned = ';'.join(main_cookie_list)
     page.get(url)
 
+    # time.sleep(1)
+
+    page.set.cookies(cookie_cleaned)
+    page.refresh()
     # Interact with elements if needed
     input_pin = page.ele('tag:input@id:pin')
-    input_pin.clear()
-    input_pin.input('560001')
+    if input_pin:
+        input_pin.clear()
+        cookiee = page.cookies(all_domains=False)
+        obj.cur.execute(f'''update fetch_table set cookie="{cookiee}", update_time="{datetime.datetime.now()}" where id=1''')
+        obj.con.commit()
+        input_pin.input(pin)
+        check_button = page.ele('tag:span@text():CHECK')
+        check_button.click()
+        time.sleep(2)
+        data = page.html
+        hashid = create_md5_hash(pid)
+        today_date = datetime.datetime.today().strftime('%d_%m_%Y')
+        pagesave_dir = rf"C:/Users/Actowiz/Desktop/pagesave/meesho_test/{today_date}/{pin}"
+        file_name = fr"{pagesave_dir}/{hashid}.html"
+        if not os.path.exists(file_name):
+            page_write(pagesave_dir, file_name, data)
 
-    # Click the "CHECK" button
-    check_button = page.ele('tag:span@text():CHECK')
-    check_button.click()
-
-    # Capture network requests
-    network_requests = page.listen.targets
-
-    # Print network request details
-    for req in network_requests:
-        print(f"URL: {req.url}")
-        print(f"Method: {req.method}")
-        print(f"Status Code: {req.status_code}")
-        print(f"Headers: {req.headers}")
-        print("---------")
-
-    # Stop listening
-    page.listen.stop()
-
-    # Access session cookies and other session information
-    session_cookies = page.cookies(all_domains=False).as_dict()
-    print("Session Cookies:", session_cookies)
-
-    # Optionally, print the entire HTML for inspection
-    page_html = page.html
-    print()
-
-
-
-    print()
-
+        obj.cur.execute(f"update {obj.product_links_table} set status_560001='Done' where meesho_pid='{pid}'")
+        obj.con.commit()
+        print(f'pid {pid} done!')
+    else:
+        data = page.html
+        hashid = create_md5_hash(pid)
+        today_date = datetime.datetime.today().strftime('%d_%m_%Y')
+        pagesave_dir = rf"C:/Users/Actowiz/Desktop/pagesave/meesho_test/{today_date}/{pin}"
+        file_name = fr"{pagesave_dir}/{hashid}.html"
+        if not os.path.exists(file_name):
+            page_write(pagesave_dir, file_name, data)
+        obj.cur.execute(f"update {obj.product_links_table} set status_560001='pincode_error' where meesho_pid='{pid}'")
+        obj.con.commit()
+        print(f'?pid {pid} pincode not found?')
+    page.close()
 
 if __name__ == '__main__':
-    qr = f"select * from {obj.product_links_table} where status='Done' and status_560001='pending' limit 1,5"
+    qr = f"select * from {obj.product_links_table} where status='Done' and status_560001='pending' limit 2000"
     obj.cur.execute(qr)
     results = obj.cur.fetchall()
     for row in results:
-
         pid = row['meesho_pid']
         url = f'https://www.meesho.com/s/p/{pid}'
-
         data(link=url, pid=pid, pin='560001')
